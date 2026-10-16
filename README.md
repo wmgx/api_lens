@@ -77,6 +77,7 @@ src/panel/                       # 面板 UI：列表、详情、JSON 查看器�
 src/sandbox/                     # 表达式求值沙箱（路径 / JSONPath / JS）
 icons/
 scripts/package.sh               # 校验并打包
+tests/panel_test.py              # 面板回归测试（Playwright）
 .github/workflows/build.yml      # CI：自动打包，推送 v* tag 自动发布 Release
 ```
 
@@ -101,4 +102,9 @@ scripts/package.sh               # 校验并打包
 - **请求列表**：虚拟滚动，行高固定 26px，只渲染可视区。行元素按记录 id 复用，新请求到来时只增删变化的行。不要改回 `innerHTML` 整体重建，否则悬停中的行会被替换，导致闪烁、悬停提示不出现。
 - **JSON 树**：节点展开时才渲染子节点，子节点超过 500 个时分批加载；搜索命中时自动展开祖先节点。
 - **设置与历史**：存在 `chrome.storage.local`，不可用时（如普通网页里调试面板）退回 `localStorage`。
-- **测试**：仓库中没有自动化测试。之前的验证方式是在本地起静态服务器打开 `src/panel/panel.html`，在页面加载前注入假的 `chrome.devtools` 和 `window.__jniStore`（含模拟记录和 `loadContent`），再用 Playwright 操作和截图。改动较大时建议按这个方式回归，并在真实 DevTools 中加载扩展验证。
+- **测试**：`tests/panel_test.py` 在本地起静态服务器打开 `src/panel/panel.html`，页面加载前注入假的 `chrome.devtools` 和 `window.__jniStore`（模拟请求记录），再用 Playwright 操作并断言。覆盖列表筛选、悬停不闪烁、详情、JSON 搜索 / 表达式 / 复制、清空等主要功能。改完代码后运行一次，较大改动再到真实 DevTools 中加载扩展验证：
+
+  ```bash
+  pip install playwright && playwright install chromium   # 首次
+  python3 tests/panel_test.py
+  ```
