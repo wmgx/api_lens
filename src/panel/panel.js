@@ -88,10 +88,10 @@ const insertIndex = (list, time) => {
 // ---------- 列表（虚拟滚动） ----------
 const atBottom = () => vlist.scrollTop + vlist.clientHeight >= vlist.scrollHeight - ROW_H;
 
-const rowHtml = (r, i) => {
+const rowHtml = (r) => {
   const { host, path } = urlParts(r);
   const slow = r.duration >= 1000 ? ' slow' : '';
-  return `<div class="r${r.id === selectedId ? ' sel' : ''}" data-i="${i}" style="top:${i * ROW_H}px">
+  return `<div class="r">
     <span class="c-time">${fmtTime(r.startTime)}</span>
     <span class="c-m m-${esc(r.method.toLowerCase())}">${esc(r.method)}</span>
     <span class="c-st ${statusClass(r.status)}">${r.status || '失败'}</span>
@@ -101,14 +101,33 @@ const rowHtml = (r, i) => {
   </div>`;
 };
 
+// 可见行按记录 id 复用 DOM：新请求到来时只增删变化的行，避免悬停中的行被替换而闪烁
+let rowEls = new Map();
+const rowTpl = document.createElement('template');
+const makeRow = (r) => {
+  rowTpl.innerHTML = rowHtml(r);
+  return rowTpl.content.firstElementChild;
+};
+
 function paint() {
   paintQueued = false;
   vspacer.style.height = `${filtered.length * ROW_H}px`;
   const start = Math.max(0, Math.floor(vlist.scrollTop / ROW_H) - OVERSCAN);
   const end = Math.min(filtered.length, Math.ceil((vlist.scrollTop + vlist.clientHeight) / ROW_H) + OVERSCAN);
-  let html = '';
-  for (let i = start; i < end; i += 1) html += rowHtml(filtered[i], i);
-  vspacer.innerHTML = html;
+  const next = new Map();
+  for (let i = start; i < end; i += 1) {
+    const r = filtered[i];
+    const el = rowEls.get(r.id) || makeRow(r);
+    if (el.dataset.i !== String(i)) {
+      el.dataset.i = i;
+      el.style.top = `${i * ROW_H}px`;
+    }
+    el.classList.toggle('sel', r.id === selectedId);
+    if (el.parentNode !== vspacer) vspacer.appendChild(el);
+    next.set(r.id, el);
+  }
+  rowEls.forEach((el, id) => { if (!next.has(id)) el.remove(); });
+  rowEls = next;
   renderMeta();
 }
 
