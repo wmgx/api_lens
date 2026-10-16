@@ -1,6 +1,6 @@
 # API Lens
 
-Edge / Chrome DevTools 扩展：在 DevTools 中新增「API Lens」标签页，查看当前标签页的网络请求，重点优化 JSON 接口的查看与排查——JSON 格式化 / 折叠 / 搜索、`$.path` 与 JS 表达式过滤、复制 cURL、自动提取 `x-tt-logid` 等 Header、导出 HAR。
+Edge / Chrome DevTools 扩展：在 DevTools 中新增「API Lens」标签页，查看当前标签页的网络请求，重点优化 JSON 接口的查看与排查——JSON 格式化 / 折叠 / 搜索、`$.path` 与 JS 表达式过滤、复制 cURL、支持配置自动提取 Header（独立展示并提供一键复制）、导出 HAR。
 
 ![API Lens 总览](.github/assets/overview.png)
 
