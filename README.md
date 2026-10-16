@@ -89,7 +89,6 @@ scripts/package.sh               # 校验并打包
 
 - 推送到 `main` 或提交 PR：GitHub Actions 自动校验并打包，zip 可在该次运行的 Artifacts 中下载
 - 推送 `v*` tag（如 `git tag v1.3.0 && git push origin v1.3.0`）：自动打包并发布 Release，版本号取自 tag
-- 发版前先把 `manifest.json` 的 `version` 改成同一版本号并提交，保证直接从源码加载时版本一致
 
 ## 实现要点
 
