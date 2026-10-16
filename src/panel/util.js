@@ -46,6 +46,18 @@ export const splitUrl = (url) => {
   }
 };
 
+// MIME 子类型简写，用于类型列与详情元信息
+const MIME_SHORT = {
+  javascript: 'js', 'x-javascript': 'js', ecmascript: 'js', 'svg+xml': 'svg', 'octet-stream': 'bin',
+  plain: 'text', 'x-www-form-urlencoded': 'form', 'event-stream': 'sse', 'vnd.apple.mpegurl': 'm3u8',
+};
+export const typeLabel = (r) => {
+  const mime = r.mime.split(';')[0].trim().toLowerCase();
+  if (!mime) return r.resourceType;
+  const sub = mime.split('/')[1] || mime;
+  return MIME_SHORT[sub] || sub.replace(/^x-/, '').replace(/^.*\+json$/, 'json').slice(0, 12);
+};
+
 export const statusClass = (s) => (s >= 500 ? 's5' : s >= 400 ? 's4' : s >= 300 ? 's3' : s >= 200 ? 's2' : 's0');
 
 // DevTools 面板里 navigator.clipboard 常因焦点 / 权限失败，优先走 execCommand
@@ -135,6 +147,10 @@ export const icons = {
   play: svg('<path d="M5 3.25v9.5l7.5-4.75z" fill="currentColor"/>'),
   download: svg('<path d="M8 2.5v8M4.75 7.5 8 10.75l3.25-3.25M3 13.25h10"/>'),
   check: svg('<path d="m3.5 8.5 3 3 6-7"/>'),
+  clock: svg('<circle cx="8" cy="8" r="5.75"/><path d="M8 5v3l2 1.25"/>'),
+  timer: svg('<circle cx="8" cy="9" r="5"/><path d="M8 9V6.5M6.5 2.25h3M12.25 4.75l-.75.75"/>'),
+  box: svg('<path d="M2.75 5 8 2.25 13.25 5v6L8 13.75 2.75 11z"/><path d="M2.75 5 8 7.75 13.25 5M8 7.75v6"/>'),
+  file: svg('<path d="M4 2.25h5l3 3v8.5H4z"/><path d="M9 2.25v3h3"/>'),
   terminal: svg('<rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2"/><path d="m4.5 6.5 2 1.5-2 1.5M8 10h3"/>'),
   fx: svg('<path d="M9.5 2.75c-1.5 0-2 .75-2.25 2l-1.5 7c-.25 1.25-.75 2-2.25 2M4.5 6.5h5M10 8.5l3 4M13 8.5l-3 4"/>'),
   close: svg('<path d="m4 4 8 8M12 4l-8 8"/>'),

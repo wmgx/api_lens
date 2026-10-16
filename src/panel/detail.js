@@ -1,4 +1,4 @@
-import { $, esc, icons, fmtDate, fmtDuration, fmtSize, statusClass, copyWithToast, settings, toast } from './util.js';
+import { $, esc, icons, fmtDate, fmtTime, fmtDuration, fmtSize, statusClass, copyWithToast, settings, toast, typeLabel } from './util.js';
 import { createJsonView } from './jsonView.js';
 import { toCurl } from './curl.js';
 import { contentBlob, downloadBody, fileNameFor } from './exporter.js';
@@ -40,6 +40,18 @@ const extractHtml = (items) => {
 };
 
 const isImage = (mime) => /^image\//i.test(mime);
+
+// 元信息标签：图标 + 值，悬停显示完整说明
+const metaItem = (icon, text, tip, cls = '') => `<span class="mi${cls ? ` ${cls}` : ''}" data-tip="${esc(tip)}">${icon}<span>${esc(text)}</span></span>`;
+const isToday = (ms) => new Date(ms).toDateString() === new Date().toDateString();
+const speedClass = (ms) => (ms >= 1000 ? 'slow' : ms < 300 ? 'fast' : '');
+const metaHtml = (r) => [
+  metaItem(icons.clock, isToday(r.startTime) ? fmtTime(r.startTime) : fmtDate(r.startTime), `开始时间 ${fmtDate(r.startTime)}`),
+  metaItem(icons.timer, fmtDuration(r.duration), '耗时', speedClass(r.duration)),
+  r.size >= 0 && metaItem(icons.box, fmtSize(r.size),
+    r.transferSize > 0 ? `响应大小 ${fmtSize(r.size)} · 传输 ${fmtSize(r.transferSize)}` : '响应大小'),
+  metaItem(icons.file, typeLabel(r) === r.resourceType ? r.resourceType : `${r.resourceType} · ${typeLabel(r)}`, `类型 ${r.resourceType}${r.mime ? ` · ${r.mime}` : ''}`),
+].filter(Boolean).join('');
 
 export function createDetail(root, { onClose, getExtracted, getStore }) {
   root.innerHTML = `
@@ -177,9 +189,7 @@ export function createDetail(root, { onClose, getExtracted, getStore }) {
       $('.badge-s', root).className = `badge-s ${statusClass(r.status)}`;
       $('.d-url', root).textContent = r.url;
       $('.d-url', root).dataset.tip = r.url;
-      $('.d-meta', root).innerHTML = [
-        fmtDate(r.startTime), fmtDuration(r.duration), fmtSize(r.size), r.resourceType, r.mime,
-      ].filter(Boolean).map((t) => `<span>${esc(t)}</span>`).join('');
+      $('.d-meta', root).innerHTML = metaHtml(r);
       loadResponse(r);
       jvReq.set(r.reqBody, { emptyText: '无请求体' });
       $('.d-query', root).innerHTML = r.query.length ? section('query', 'Query 参数', r.query) : '';

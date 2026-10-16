@@ -1,5 +1,5 @@
 import {
-  $, esc, icons, fmtTime, fmtDuration, fmtSize, splitUrl, statusClass, copyWithToast, settings, toast, attachClear,
+  $, esc, icons, fmtTime, fmtDuration, fmtSize, splitUrl, statusClass, copyWithToast, settings, toast, attachClear, typeLabel,
 } from './util.js';
 import { createDetail } from './detail.js';
 import { compileRule } from './hostFilter.js';
@@ -73,18 +73,6 @@ function passes(r) {
   const hay = `${r.url} ${extract(r).map((it) => it.value).join(' ')}`.toLowerCase();
   return filter.tokens.every(({ neg, t }) => hay.includes(t) !== neg);
 }
-
-// 类型列：取 MIME 子类型的简写
-const MIME_SHORT = {
-  javascript: 'js', 'x-javascript': 'js', ecmascript: 'js', 'svg+xml': 'svg', 'octet-stream': 'bin',
-  plain: 'text', 'x-www-form-urlencoded': 'form', 'event-stream': 'sse', 'vnd.apple.mpegurl': 'm3u8',
-};
-const typeLabel = (r) => {
-  const mime = r.mime.split(';')[0].trim().toLowerCase();
-  if (!mime) return r.resourceType;
-  const sub = mime.split('/')[1] || mime;
-  return MIME_SHORT[sub] || sub.replace(/^x-/, '').replace(/^.*\+json$/, 'json').slice(0, 12);
-};
 
 const insertIndex = (list, time) => {
   let lo = 0;

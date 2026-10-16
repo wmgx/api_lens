@@ -240,7 +240,16 @@ input:placeholder-shown + .clear-x { display: none; }
   user-select: text;
 }
 .d-title .icon { width: 22px; height: 22px; }
-.d-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--fg-3); font: 11px var(--mono); }
+.d-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.mi {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px 0 6px;
+  border-radius: 6px; background: var(--bg-2); border: 1px solid var(--line);
+  color: var(--fg); font: 11px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; cursor: default;
+}
+.mi svg { width: 12px; height: 12px; color: var(--fg-3); }
+.mi.fast { color: var(--s2); }
+.mi.slow { color: var(--slow); background: color-mix(in srgb, var(--slow) 8%, var(--bg-2)); }
+.mi.fast svg, .mi.slow svg { color: currentColor; opacity: .8; }
 .d-extract { display: grid; gap: 4px; }
 .d-extract:empty { display: none; }
 .ex-row {
