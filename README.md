@@ -2,6 +2,15 @@
 
 Edge / Chrome DevTools 扩展：在 DevTools 中新增「API Lens」标签页，查看当前标签页的网络请求，重点优化 JSON 接口的查看与排查——JSON 格式化 / 折叠 / 搜索、`$.path` 与 JS 表达式过滤、复制 cURL、自动提取 `x-tt-logid` 等 Header、导出 HAR。
 
+![API Lens 总览](.github/assets/overview.png)
+
+<details>
+<summary>暗色主题</summary>
+
+![暗色主题](.github/assets/dark.png)
+
+</details>
+
 ## 安装
 
 1. 在 [Releases](https://github.com/wmgx/api_lens/releases) 下载最新的 `api-lens-x.y.z.zip` 并解压（或直接克隆本仓库）
@@ -27,8 +36,9 @@ Edge / Chrome DevTools 扩展：在 DevTools 中新增「API Lens」标签页，
 | 暂停 / 导出 | 暂停期间的请求不记录；导出当前列表或选中请求为 HAR / JSON |
 | 右键菜单 | 复制 cURL / URL / 提取的 Header / 响应体 / 请求体，下载响应体，导出此请求，只看 / 隐藏此 Host |
 | 设置（齿轮） | 自动提取 Header（每行一个，默认 `x-tt-logid`）；Host 过滤（显示全部 / 仅显示匹配 / 隐藏匹配，支持 `*`），只影响展示 |
+| 详情 | 顶部显示方法、状态、完整 URL，以及时间 / 耗时 / 大小 / 类型标签（悬停看完整日期、传输大小、MIME）；提取的 Header 一键复制；可复制 cURL、URL，下载响应体。Headers 页分概要 / 响应头 / 请求头，请求页显示 Query 参数和请求体；每行悬停可复制值，标题可复制整组 |
 | 响应 | JSON 用查看器；图片直接预览（显示尺寸）；其他文本按原文显示；二进制显示文件信息并可下载（文件名取自 Content-Disposition） |
-| JSON 查看 | 格式化、高亮（树形和文本模式都有）、缩进引导线、数组下标、折叠（Alt+点击递归）、悬停复制；超大整数不丢精度 |
+| JSON 查看 | 格式化、高亮（树形和文本模式都有）、缩进引导线、数组下标、折叠（折叠后显示 `{…}` 和数量，Alt+点击递归）、悬停复制；长字符串在值内折行，换行 / 引号按转义显示（复制仍为原值）；超大整数不丢精度 |
 | JSON 搜索 | 搜索 key / value，Enter / Shift+Enter 跳转，自动展开并定位 |
 | 路径栏 | 底部显示悬停节点的 `$.path`，点击复制；右键节点可复制值 / 路径 / key、按此路径过滤 |
 | 表达式过滤 | 输入框固定以 `$.` 开头，切换请求时保留，历史可下拉选择 / 删除（见下） |
@@ -44,6 +54,8 @@ Edge / Chrome DevTools 扩展：在 DevTools 中新增「API Lens」标签页，
 | 路径 | `data.user.name`、`data.list[0]`、`data.list[-1]`、`data['x-key']`；根是数组时写 `[0]` |
 | JSONPath | `data.list[*].id`、`.id`（即 `$..id` 递归）、`data.list[0:5]`、`data.*` |
 | JS 表达式 | `data.list.filter(x => x.status !== 0).map(x => ({ id: x.id, name: x.name }))`、`data.list.length` |
+
+![表达式过滤](.github/assets/expression.png)
 
 JS 表达式在扩展的沙箱页中执行，不能访问页面和扩展权限。超出安全整数范围的数字以原文保留，参与数值比较时会失真。
 
