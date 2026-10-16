@@ -297,7 +297,7 @@ input:placeholder-shown + .clear-x { display: none; }
 .sec summary:hover .icon { opacity: 1; }
 .sec-body { padding: 0 12px 8px 24px; }
 .kv {
-  display: grid; grid-template-columns: minmax(110px, 32%) 1fr; gap: 12px;
+  display: grid; grid-template-columns: minmax(110px, 32%) 1fr 20px; gap: 12px; align-items: start;
   padding: 3px 6px; border-radius: 4px; font: 11.5px/1.5 var(--mono);
 }
 .kv:hover { background: var(--hover); }
@@ -306,6 +306,8 @@ input:placeholder-shown + .clear-x { display: none; }
 .kv.hl { background: var(--accent-soft); }
 .kv.hl .kv-k { color: var(--accent); font-weight: 600; }
 .kv-empty { color: var(--fg-3); padding: 2px 6px; }
+.kv .icon { width: 20px; height: 18px; opacity: .45; }
+.kv:hover .icon { opacity: 1; }
 
 /* ---------- 设置弹层 ---------- */
 .modal {

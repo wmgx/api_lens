@@ -5,8 +5,9 @@ import { contentBlob, downloadBody, fileNameFor } from './exporter.js';
 
 const TABS = ['res', 'req', 'headers'];
 
-const headerRows = (pairs, hl) => pairs.map(([k, v]) => `
-  <div class="kv${hl.has(k.toLowerCase()) ? ' hl' : ''}"><span class="kv-k">${esc(k)}</span><span class="kv-v">${esc(v)}</span></div>`).join('');
+// 每行末尾带复制按钮（复制该行的值）
+const headerRows = (pairs, hl) => pairs.map(([k, v], i) => `
+  <div class="kv${hl.has(k.toLowerCase()) ? ' hl' : ''}"><span class="kv-k">${esc(k)}</span><span class="kv-v">${esc(v)}</span><button type="button" class="icon sm" data-copy-kv="${i}" title="复制 ${esc(k)} 的值">${icons.copy}</button></div>`).join('');
 
 const section = (id, title, pairs, hl = new Set()) => `
   <details class="sec" open data-sec="${id}">
@@ -105,7 +106,7 @@ export function createDetail(root, { onClose, getExtracted, getStore }) {
   root.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn || !current) return;
-    const { act, tab: tabName, copySec, ex } = btn.dataset;
+    const { act, tab: tabName, copySec, copyKv, ex } = btn.dataset;
     if (tabName) {
       setTab(tabName);
       settings.set('detailTab', tab);
@@ -116,6 +117,9 @@ export function createDetail(root, { onClose, getExtracted, getStore }) {
     else if (ex != null) {
       const it = extracted.filter((x) => x.value)[Number(ex)];
       copyWithToast(it.value, `已复制 ${it.name}`);
+    } else if (copyKv != null) {
+      const [k, v] = sectionPairs(btn.closest('[data-sec]').dataset.sec)[Number(copyKv)];
+      copyWithToast(v, `已复制 ${k}`);
     } else if (copySec) {
       e.preventDefault();
       copyWithToast(sectionPairs(copySec).map(([k, v]) => `${k}: ${v}`).join('\n'));
