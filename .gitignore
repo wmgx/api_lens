@@ -1,0 +1,15 @@
+# 打包产物
+dist/
+*.zip
+*.crx
+*.pem
+
+# 中间文件
+temp/
+node_modules/
+
+# 系统 / 编辑器
+.DS_Store
+.idea/
+.vscode/
+*.log

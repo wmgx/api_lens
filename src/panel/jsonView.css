@@ -1,0 +1,123 @@
+.jv {
+  --k: #0550ae; --str: #0a7343; --num: #b45309; --kw: #7c3aed; --punct: var(--fg-3);
+  --indent: 14px; --guide: color-mix(in srgb, var(--fg-3) 22%, transparent);
+  display: flex; flex-direction: column; position: relative; height: 100%; container-type: inline-size;
+}
+:root[data-theme="dark"] .jv { --k: #8cc2ff; --str: #8fdcaa; --num: #f5b46b; --kw: #c4a5ff; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .jv { --k: #8cc2ff; --str: #8fdcaa; --num: #f5b46b; --kw: #c4a5ff; }
+}
+
+/* ---------- 工具栏 ---------- */
+.jv-bar {
+  display: flex; align-items: center; gap: 6px; padding: 6px 8px; flex: none;
+  border-bottom: 1px solid var(--line);
+}
+.jv-field {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+  height: 26px; padding: 0 2px 0 8px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bg-input); color: var(--fg-3); transition: border-color .12s, box-shadow .12s;
+}
+.jv-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.jv-field input { flex: 1; min-width: 40px; border: 0; outline: 0; background: transparent; color: var(--fg); padding-left: 2px; }
+.jv-field input::placeholder { color: var(--fg-3); }
+.jv-query { flex: 3 1 0; min-width: 120px; }
+.jv-query input { font: 11.5px var(--mono); }
+.jv-prefix { flex: none; font: 600 11.5px var(--mono); color: var(--accent); user-select: none; }
+.jv-query input { padding-left: 0; }
+.jv.filtered .jv-query { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: var(--accent-soft); }
+.jv-search { flex: 2 1 0; min-width: 130px; max-width: 280px; }
+.jv-tools { flex: none; }
+/* 很窄时过滤框独占一行，搜索与工具按钮在第二行 */
+@container (max-width: 420px) {
+  .jv-bar { flex-wrap: wrap; }
+  .jv-query { flex-basis: 100%; }
+  .jv-search { max-width: none; }
+}
+.jv.nojson .jv-query { display: none; }
+.jv-count { font: 11px var(--mono); color: var(--fg-3); white-space: nowrap; }
+.jv-count.none { color: var(--s5); }
+.jv-field button, .jv-tools button {
+  display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 5px;
+  background: transparent; color: var(--fg-2); padding: 0; flex: none;
+}
+.jv-field button:hover, .jv-tools button:hover { background: var(--bg-3); color: var(--fg); }
+.jv-tools { display: flex; gap: 2px; margin-left: auto; }
+.jv-tools button { width: 26px; height: 26px; }
+.jv-tools button:disabled { opacity: .35; pointer-events: none; }
+.jv.raw [data-act="expand"], .jv.raw [data-act="collapse"] { opacity: .35; }
+
+/* ---------- 过滤结果提示 ---------- */
+.jv-banner {
+  display: flex; align-items: center; gap: 8px; flex: none; min-width: 0;
+  padding: 5px 12px; font-size: 11.5px; color: var(--fg-2);
+  background: var(--accent-soft); border-bottom: 1px solid var(--line);
+}
+.jv-banner b { color: var(--accent); font-weight: 600; flex: none; }
+.jv-banner code { font: 11px var(--mono); color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.jv-banner span { flex: none; color: var(--fg-3); font: 11px var(--mono); }
+.jv-banner.err { background: color-mix(in srgb, var(--s5) 10%, transparent); }
+.jv-banner.err b { color: var(--s5); }
+.jv-banner.err span { flex: 1; min-width: 0; color: var(--fg-2); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 树 ---------- */
+.jv-body { flex: 1; min-height: 0; overflow: auto; outline: 0; padding: 6px 0 16px; }
+.jv-empty { color: var(--fg-3); padding: 24px; text-align: center; }
+.jv-tree { font: 12px/20px var(--mono); }
+.jv-row {
+  position: relative; padding: 0 40px 0 calc(var(--d) * var(--indent) + 22px);
+  white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+  /* 缩进引导线：每一级画一条竖线 */
+  background-image: repeating-linear-gradient(to right, var(--guide) 0 1px, transparent 1px var(--indent));
+  background-size: calc(var(--d) * var(--indent)) 100%;
+  background-position: 12px 0;
+  background-repeat: no-repeat;
+}
+.jv-row:hover { background-color: var(--hover); }
+.jv-blk:has(> .jv-head:hover) { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.jv-tg { position: absolute; left: calc(var(--d) * var(--indent) + 6px); top: 0; width: 14px; height: 20px; cursor: pointer; }
+.jv-tg::before {
+  content: ""; position: absolute; left: 4px; top: 6px; border: 4px solid transparent; border-left: 5px solid var(--fg-3);
+  transition: transform .1s; transform-origin: 2px 4px;
+}
+.jv-head.open .jv-tg::before { transform: rotate(90deg); }
+.jv-tg:hover::before { border-left-color: var(--fg); }
+.jv-head [data-t] { cursor: pointer; }
+.jv-k { color: var(--k); }
+.jv-i { color: var(--fg-3); font-size: 10.5px; margin-right: 8px; user-select: none; }
+.jv-p, .jv-b { color: var(--punct); }
+.jv-str { color: var(--str); }
+.jv-number { color: var(--num); }
+.jv-boolean, .jv-null { color: var(--kw); }
+.jv-sum, .jv-cnt {
+  display: inline-block; margin: 0 4px; padding: 0 6px; border-radius: 9px;
+  font-size: 10.5px; line-height: 16px; color: var(--fg-3); background: var(--bg-3);
+}
+.jv-cnt { background: transparent; padding: 0 2px; opacity: 0; }
+.jv-head:hover .jv-cnt { opacity: 1; }
+.jv-sum:hover { color: var(--fg); }
+.jv-more {
+  border: 1px dashed var(--line-2); background: transparent; color: var(--accent);
+  border-radius: 4px; padding: 0 8px; font: 11px/18px var(--font);
+}
+.jv-more:hover { background: var(--accent-soft); }
+.jv-k.jv-cur, .jv-v.jv-cur { outline: 1.5px solid var(--mark-cur); outline-offset: 1px; border-radius: 2px; }
+
+.jv-raw {
+  margin: 0; padding: 4px 14px; font: 12px/20px var(--mono); color: var(--fg);
+  white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; user-select: text;
+}
+
+/* ---------- 路径栏 / 浮动复制 ---------- */
+.jv-path {
+  flex: none; display: flex; align-items: center; height: 24px; padding: 0 12px; min-width: 0;
+  border-top: 1px solid var(--line); background: var(--bg-2); color: var(--fg-3); font-size: 11px; cursor: pointer;
+}
+.jv-path code { font: 11px var(--mono); color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jv-path:hover code { color: var(--accent); }
+.jv-cp {
+  position: absolute; right: 10px; z-index: 3; display: grid; place-items: center;
+  width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px;
+  background: var(--bg-3); color: var(--fg-2);
+}
+.jv-cp:hover { color: var(--accent); background: var(--accent-soft); }

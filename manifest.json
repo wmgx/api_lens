@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "API Lens",
+  "short_name": "API Lens",
+  "version": "1.2.0",
+  "description": "DevTools 中的网络请求检查器：JSON 格式化与表达式查询、图片预览、文件下载、复制 cURL、自动提取 x-tt-logid 等 Header、导出 HAR。",
+  "minimum_chrome_version": "114",
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_title": "API Lens：按 F12 打开 DevTools，切换到「API Lens」标签页",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
+  },
+  "devtools_page": "src/devtools.html",
+  "permissions": [
+    "storage"
+  ],
+  "sandbox": {
+    "pages": [
+      "src/sandbox/sandbox.html"
+    ]
+  }
+}

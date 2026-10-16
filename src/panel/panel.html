@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>API Lens</title>
+  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="jsonView.css">
+  <script type="module" src="panel.js"></script>
+</head>
+<body>
+  <header class="bar">
+    <label class="filter" title="匹配 URL 和提取的 Header 值；空格分隔多个关键词，-前缀表示排除">
+      <span class="filter-icon"></span>
+      <input id="q" type="text" placeholder="筛选 URL / Header 值" spellcheck="false" autocomplete="off">
+      <kbd>/</kbd>
+    </label>
+    <div class="bar-opts">
+      <div class="seg types" id="types" title="资源类型，⌘/Ctrl+点击可多选">
+        <button type="button" data-v="all">全部</button>
+        <button type="button" data-v="json" title="响应为 JSON 的请求（按 Content-Type 或内容识别）">JSON</button>
+        <button type="button" data-v="fetch">Fetch/XHR</button>
+        <button type="button" data-v="doc">Doc</button>
+        <button type="button" data-v="js">JS</button>
+        <button type="button" data-v="css">CSS</button>
+        <button type="button" data-v="img">Img</button>
+        <button type="button" data-v="media">Media</button>
+        <button type="button" data-v="font">Font</button>
+        <button type="button" data-v="other">其他</button>
+      </div>
+      <button type="button" id="method" title="按请求方法筛选"></button>
+      <button type="button" id="status" title="按状态码筛选"></button>
+    </div>
+    <div class="bar-end">
+      <span class="count" id="count"></span>
+      <button type="button" class="icon" id="btn-pause" title="暂停记录"></button>
+      <button type="button" class="icon" id="btn-export" title="导出为 HAR / JSON"></button>
+      <button type="button" class="icon" id="btn-settings" title="设置：提取 Header、Host 过滤"></button>
+      <button type="button" class="icon" id="btn-clear" title="清空全部记录"></button>
+    </div>
+  </header>
+
+  <main class="split" id="split" data-dir="row">
+    <section class="list" id="list">
+      <div class="lhead">
+        <span class="c-time">时间</span><span>方法</span><span>状态</span><span class="c-type">类型</span><span>地址</span><span class="c-dur">耗时</span>
+      </div>
+      <div class="vlist" id="vlist" tabindex="0"><div class="vspacer" id="vspacer"></div></div>
+      <div class="list-empty" id="empty" hidden></div>
+    </section>
+    <div class="divider" id="divider" hidden></div>
+    <section class="detail" id="detail" hidden></section>
+  </main>
+
+  <div class="modal" id="settings" hidden>
+    <form class="sheet">
+      <h2>设置</h2>
+
+      <section class="sheet-sec">
+        <h3>自动提取 Header</h3>
+        <p class="hint">每行一个 Header 名，先查响应头再查请求头。提取结果在详情顶部展示、可一键复制，也可用于列表筛选和悬停提示。</p>
+        <textarea data-field="headers" rows="4" spellcheck="false" placeholder="x-tt-logid&#10;x-tt-trace-id"></textarea>
+      </section>
+
+      <section class="sheet-sec">
+        <h3>Host 过滤</h3>
+        <p class="hint">只影响列表展示，请求始终完整记录。</p>
+        <div class="radios">
+          <label><input type="radio" name="hf-mode" value="all"> 显示全部</label>
+          <label><input type="radio" name="hf-mode" value="include"> 仅显示匹配</label>
+          <label><input type="radio" name="hf-mode" value="exclude"> 隐藏匹配</label>
+        </div>
+        <textarea data-field="hosts" rows="4" spellcheck="false" placeholder="每行一条，例如：&#10;example.com&#10;*.example.org"></textarea>
+        <p class="hint"><code>example.com</code> 匹配自身及全部子域；<code>*</code> 为通配符，按 Host 整体匹配。</p>
+      </section>
+
+      <div class="actions">
+        <button type="button" class="btn" data-act="cancel">取消</button>
+        <button type="button" class="btn primary" data-act="save">保存 <kbd>⌘↵</kbd></button>
+      </div>
+    </form>
+  </div>
+
+  <div class="tip" id="tip" hidden></div>
+  <div class="toast" id="toast" role="status"></div>
+</body>
+</html>

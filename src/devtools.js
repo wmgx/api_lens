@@ -1,0 +1,149 @@
+// DevTools 打开即运行：持续收集当前标签页的所有网络请求（刷新后继续追加），面板展示时再接入。
+// Fetch/XHR 的文本响应在完成时立即读取；其他资源（图片、脚本、下载等）在查看时按需读取，避免占用大量内存。
+const EAGER_MAX = 5 * 1024 * 1024;
+const TEXT_MIME = /json|text|javascript|xml|html|css|urlencoded|graphql/i;
+const JSON_MIME = /json/i;
+
+const CATEGORY = {
+  xhr: 'fetch', fetch: 'fetch', eventsource: 'fetch',
+  document: 'doc', script: 'js', stylesheet: 'css', image: 'img',
+  media: 'media', font: 'font',
+};
+
+let seq = 0;
+
+function createStore(loadContent) {
+  let records = [];
+  let paused = false;
+  const subscribers = new Set();
+  const notify = (event) => subscribers.forEach((fn) => fn(event));
+
+  // 按请求开始时间升序插入；绝大多数情况是追加到末尾
+  const indexFor = (time) => {
+    let lo = 0;
+    let hi = records.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (records[mid].startTime <= time) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+
+  return {
+    get records() { return records; },
+    get paused() { return paused; },
+    setPaused(value) {
+      paused = !!value;
+      notify({ type: 'pause', paused });
+    },
+    add(record) {
+      const index = indexFor(record.startTime);
+      // 记录数不设上限，这里有意原地插入，避免每条请求都复制整个数组
+      records.splice(index, 0, record);
+      notify({ type: 'add', record, index });
+    },
+    clear() {
+      records = [];
+      notify({ type: 'clear' });
+    },
+    subscribe(fn) {
+      subscribers.add(fn);
+      return () => subscribers.delete(fn);
+    },
+    // 返回 { text, encoding }，encoding 为 'base64' 表示二进制内容
+    loadContent,
+  };
+}
+
+const entries = new WeakMap(); // record -> HAR entry
+const contents = new WeakMap(); // record -> Promise<{ text, encoding }>
+
+const readContent = (entry) => new Promise((resolve, reject) => {
+  entry.getContent((content, encoding) => {
+    if (content == null) reject(new Error('内容不可用（可能已随页面跳转释放）'));
+    else resolve({ text: content, encoding: encoding === 'base64' ? 'base64' : '' });
+  });
+});
+
+// base64 的文本内容转成字符串，便于直接展示和搜索
+const normalizeContent = ({ text, encoding }, mime) => {
+  if (encoding !== 'base64' || !TEXT_MIME.test(mime)) return { text, encoding };
+  try {
+    const bin = atob(text);
+    return { text: new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))), encoding: '' };
+  } catch {
+    return { text, encoding };
+  }
+};
+
+const looksLikeJson = (text) => {
+  const t = text.trimStart();
+  if (t[0] !== '{' && t[0] !== '[') return false;
+  try { JSON.parse(text); return true; } catch { return false; }
+};
+
+function loadContent(record) {
+  if (!contents.has(record)) {
+    const entry = entries.get(record);
+    const p = entry ? readContent(entry).then((c) => normalizeContent(c, record.mime)) : Promise.reject(new Error('内容不可用'));
+    contents.set(record, p);
+    p.catch(() => contents.delete(record)); // 失败允许重试
+  }
+  return contents.get(record);
+}
+
+const store = createStore(loadContent);
+
+const toPairs = (headers = []) => headers.map((h) => [h.name, h.value]);
+
+function toRecord(entry) {
+  const { request, response } = entry;
+  const postData = request.postData;
+  seq += 1;
+  return {
+    id: seq,
+    method: request.method,
+    url: request.url,
+    status: response.status,
+    statusText: response.statusText || entry._error || '',
+    startTime: new Date(entry.startedDateTime).getTime(),
+    duration: Math.max(0, Math.round(entry.time || 0)),
+    resourceType: entry._resourceType || 'other',
+    category: CATEGORY[entry._resourceType] || 'other',
+    mime: response.content?.mimeType || '',
+    json: JSON_MIME.test(response.content?.mimeType || ''),
+    reqHeaders: toPairs(request.headers),
+    reqBody: postData?.text ?? null,
+    reqMime: postData?.mimeType || '',
+    reqParams: (postData?.params || []).map((p) => ({
+      name: p.name, value: p.value ?? '', fileName: p.fileName || '', contentType: p.contentType || '',
+    })),
+    query: (request.queryString || []).map((q) => [q.name, q.value]),
+    resHeaders: toPairs(response.headers),
+    size: response.content?.size ?? -1,
+    transferSize: entry.response._transferSize ?? response.bodySize ?? -1,
+  };
+}
+
+chrome.devtools.network.onRequestFinished.addListener((entry) => {
+  // WebSocket 只在连接关闭后上报且没有响应体，不做记录
+  if (store.paused || entry._resourceType === 'websocket') return;
+  const record = toRecord(entry);
+  entries.set(record, entry);
+  const eager = record.category === 'fetch' && TEXT_MIME.test(record.mime) && record.size <= EAGER_MAX;
+  if (!eager) return store.add(record);
+  // 先读完再入列表，保证页面跳转后接口响应仍可查看
+  // text/plain 等返回 JSON 的接口，按内容识别；记录尚未入列表，此处补标记是安全的
+  loadContent(record).then((c) => {
+    if (!record.json && !c.encoding && looksLikeJson(c.text)) record.json = true;
+  }, () => null).then(() => store.add(record));
+});
+
+// 面板首次显示时才加载，两边都做一次握手，谁先就绪都能接上
+chrome.devtools.panels.create('API Lens', 'icons/16.png', 'src/panel/panel.html', (panel) => {
+  panel.onShown.addListener((win) => {
+    win.__jniStore = store;
+    win.__jniAttach?.(store);
+  });
+});
