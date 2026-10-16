@@ -89,3 +89,17 @@ scripts/package.sh               # 校验并打包
 
 - 推送到 `main` 或提交 PR：GitHub Actions 自动校验并打包，zip 可在该次运行的 Artifacts 中下载
 - 推送 `v*` tag（如 `git tag v1.3.0 && git push origin v1.3.0`）：自动打包并发布 Release，版本号取自 tag
+- 发版前先把 `manifest.json` 的 `version` 改成同一版本号并提交，保证直接从源码加载时版本一致
+
+## 实现要点
+
+改代码前建议先读这一节，下面几处设计不看说明不容易想到。
+
+- **请求收集与面板通信**：请求由 `src/devtools.js`（DevTools 页）通过 `chrome.devtools.network.onRequestFinished` 收集，存在内存 store 中。所以只要 DevTools 开着，即使没切到 API Lens 面板也会记录。面板首次显示时，`panel.onShown` 把 store 挂到面板的 `window.__jniStore` 并调用 `window.__jniAttach`，两边共用同一份数据，没有消息序列化。
+- **响应体读取**：Fetch/XHR 的文本响应（≤ 5MB）在请求完成时立即读取，因为页面跳转后 DevTools 可能释放内容。其他资源在查看时由 `store.loadContent` 按需读取，并用 WeakMap 缓存。
+- **表达式在沙箱中执行**：MV3 扩展页的 CSP 禁止 `eval` / `new Function`，所以 JS 表达式和 JSONPath 在 `src/sandbox/`（manifest 中声明的 sandbox 页）里执行。面板通过隐藏 iframe 加 `postMessage` 调用（`sandboxClient.js`），超时 5 秒。沙箱无法访问页面和扩展 API。
+- **大整数不丢精度**：`JSON.parse` 的 reviver 读取第三个参数 `context.source`，超出安全整数范围时用 `JSON.rawJSON` 保留原文（面板和沙箱各有一份）。依赖 Chrome 114+，这就是 manifest 中 `minimum_chrome_version` 的来源。
+- **请求列表**：虚拟滚动，行高固定 26px，只渲染可视区。行元素按记录 id 复用，新请求到来时只增删变化的行。不要改回 `innerHTML` 整体重建，否则悬停中的行会被替换，导致闪烁、悬停提示不出现。
+- **JSON 树**：节点展开时才渲染子节点，子节点超过 500 个时分批加载；搜索命中时自动展开祖先节点。
+- **设置与历史**：存在 `chrome.storage.local`，不可用时（如普通网页里调试面板）退回 `localStorage`。
+- **测试**：仓库中没有自动化测试。之前的验证方式是在本地起静态服务器打开 `src/panel/panel.html`，在页面加载前注入假的 `chrome.devtools` 和 `window.__jniStore`（含模拟记录和 `loadContent`），再用 Playwright 操作和截图。改动较大时建议按这个方式回归，并在真实 DevTools 中加载扩展验证。
