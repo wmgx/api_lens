@@ -65,8 +65,9 @@
 .jv-empty { color: var(--fg-3); padding: 24px; text-align: center; }
 .jv-tree { font: 12px/20px var(--mono); }
 .jv-row {
-  position: relative; padding: 0 40px 0 calc(var(--d) * var(--indent) + 22px);
-  white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+  /* 悬挂缩进：折行后的续行比首行多缩进 2 字符 */
+  position: relative; padding: 0 40px 0 calc(var(--d) * var(--indent) + 22px + 2ch); text-indent: -2ch;
+  white-space: pre-wrap; word-break: break-all;
   /* 缩进引导线：每一级画一条竖线 */
   background-image: repeating-linear-gradient(to right, var(--guide) 0 1px, transparent 1px var(--indent));
   background-size: calc(var(--d) * var(--indent)) 100%;
@@ -89,13 +90,12 @@
 .jv-str { color: var(--str); }
 .jv-number { color: var(--num); }
 .jv-boolean, .jv-null { color: var(--kw); }
-.jv-sum, .jv-cnt {
-  display: inline-block; margin: 0 4px; padding: 0 6px; border-radius: 9px;
-  font-size: 10.5px; line-height: 16px; color: var(--fg-3); background: var(--bg-3);
-}
-.jv-cnt { background: transparent; padding: 0 2px; opacity: 0; }
-.jv-head:hover .jv-cnt { opacity: 1; }
-.jv-sum:hover { color: var(--fg); }
+.jv-fold { padding: 0 2px; border-radius: 3px; }
+.jv-fold:hover { background: var(--bg-3); color: var(--fg); }
+.jv-sum, .jv-cnt { margin-left: 8px; font-size: 10.5px; color: var(--fg-3); opacity: .75; user-select: none; }
+.jv-sum { cursor: pointer; }
+.jv-cnt { opacity: 0; transition: opacity .1s; }
+.jv-head:hover .jv-cnt { opacity: .75; }
 .jv-more {
   border: 1px dashed var(--line-2); background: transparent; color: var(--accent);
   border-radius: 4px; padding: 0 8px; font: 11px/18px var(--font);
@@ -105,8 +105,9 @@
 
 .jv-raw {
   margin: 0; padding: 4px 14px; font: 12px/20px var(--mono); color: var(--fg);
-  white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; user-select: text;
+  white-space: pre-wrap; word-break: break-all; user-select: text;
 }
+.jv-line { padding-left: calc(var(--i) * 1ch + 2ch); text-indent: -2ch; min-height: 20px; }
 
 /* ---------- 路径栏 / 浮动复制 ---------- */
 .jv-path {

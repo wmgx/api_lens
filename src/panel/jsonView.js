@@ -19,7 +19,11 @@ const kindOf = (v) => {
 const isContainer = (v) => ['array', 'object'].includes(kindOf(v));
 const entries = (v) => (Array.isArray(v) ? v.map((c, i) => [i, c]) : Object.entries(v));
 const keyOf = (path) => path.join(SEP);
-const primText = (v) => (isRaw(v) ? v.rawJSON : String(v));
+// 展示文本：字符串按 JSON 转义（\n、\" 等），避免换行 / 引号打乱结构；复制时仍用原值
+const primText = (v) => {
+  if (isRaw(v)) return v.rawJSON;
+  return typeof v === 'string' ? JSON.stringify(v).slice(1, -1) : String(v);
+};
 export const fmtPath = (path) => `$${path.map((k) => (
   typeof k === 'number' ? `[${k}]` : IDENT.test(k) ? `.${k}` : `[${JSON.stringify(k)}]`
 )).join('')}`;
@@ -53,6 +57,17 @@ function syntaxHighlight(text, query) {
     last = m.index + m[0].length;
   }
   return out + highlight(text.slice(last), query);
+}
+
+// 文本模式逐行渲染，折行续行对齐到该行缩进；行数过多时退回整段 <pre> 保证性能
+const RAW_LINE_LIMIT = 20000;
+function rawHtml(text, paint, query) {
+  const lines = text.split('\n');
+  if (lines.length > RAW_LINE_LIMIT) return `<pre class="jv-raw">${paint(text, query)}</pre>`;
+  return `<div class="jv-raw">${lines.map((line) => {
+    const body = line.trimStart();
+    return `<div class="jv-line" style="--i:${line.length - body.length}">${body ? paint(body, query) : ' '}</div>`;
+  }).join('')}</div>`;
 }
 
 // 输入框固定以 $. 开头：data.x → $.data.x；[0] → $[0]
@@ -171,13 +186,14 @@ export function createJsonView(host) {
     blk.className = 'jv-blk';
     nodeOf.set(blk, info);
 
-    const summary = `${list.length} ${isArr ? 'items' : 'keys'}`;
+    const n = list.length;
+    const summary = isArr ? `${n} ${n === 1 ? 'item' : 'items'}` : `${n} ${n === 1 ? 'key' : 'keys'}`;
     const open = st.expanded.has(pk) && list.length > 0;
     const head = row(`jv-row jv-head${open ? ' open' : ''}${list.length ? '' : ' jv-leaf'}`, depth, !list.length
       ? `${keyHtml}<span class="jv-b">${ob}${cb}</span>${comma}`
       : open
         ? `<span class="jv-tg" data-t></span>${keyHtml}<span class="jv-b" data-t>${ob}</span><span class="jv-cnt">${summary}</span>`
-        : `<span class="jv-tg" data-t></span>${keyHtml}<span class="jv-b" data-t>${ob}</span><span class="jv-sum" data-t>${summary}</span><span class="jv-b">${cb}</span>${comma}`);
+        : `<span class="jv-tg" data-t></span>${keyHtml}<span class="jv-b jv-fold" data-t>${ob}…${cb}</span>${comma}<span class="jv-sum" data-t>${summary}</span>`);
     nodeOf.set(head, info);
     refs.set(pk, head);
     blk.appendChild(head);
@@ -206,6 +222,7 @@ export function createJsonView(host) {
   function render() {
     refs = new Map();
     hideHover();
+    pathBar.innerHTML = '<span>悬停查看路径 · 右键更多操作</span>';
     body.textContent = '';
     modeBtn.innerHTML = st.mode === 'tree' ? icons.code : icons.tree;
     modeBtn.dataset.tip = st.mode === 'tree' ? '切换为文本视图' : '切换为树形视图';
@@ -218,7 +235,7 @@ export function createJsonView(host) {
     if (st.mode === 'raw' || !st.isJson) {
       const text = rawText();
       const colorize = st.isJson || /^\s*[[{]/.test(text);
-      body.innerHTML = `<pre class="jv-raw">${colorize ? syntaxHighlight(text, st.query) : highlight(text, st.query)}</pre>`;
+      body.innerHTML = rawHtml(text, colorize ? syntaxHighlight : highlight, st.query);
       return;
     }
     const tree = document.createElement('div');
