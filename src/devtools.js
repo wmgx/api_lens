@@ -95,6 +95,37 @@ function loadContent(record) {
 
 const store = createStore(loadContent);
 
+// 扩展用 webRequest 把请求重定向到 data: URL 来 mock 时，DevTools 只上报一条 307 Internal Redirect，
+// 响应体藏在 Location 里；后续的 data: 跳转记录不带原 URL，没有查看价值
+const DATA_URL = /^data:([^,]*),(.*)$/s;
+const mockTargets = new Set();
+
+function parseDataUrl(url) {
+  const m = DATA_URL.exec(url);
+  if (!m) return null;
+  const params = m[1].split(';');
+  const base64 = params.at(-1).toLowerCase() === 'base64';
+  const mime = params.slice(0, base64 ? -1 : undefined).join(';') || 'text/plain';
+  try {
+    const raw = decodeURIComponent(m[2]);
+    const content = base64 ? { text: raw.replace(/\s/g, ''), encoding: 'base64' } : { text: raw, encoding: '' };
+    const size = base64 ? atob(content.text).length : new TextEncoder().encode(raw).length;
+    return { mime, size, content: normalizeContent(content, mime) };
+  } catch {
+    return null;
+  }
+}
+
+function applyMock(record) {
+  if (record.status < 300 || record.status >= 400) return;
+  const location = record.resHeaders.find(([k]) => k.toLowerCase() === 'location')?.[1] || '';
+  const mock = location.startsWith('data:') && parseDataUrl(location);
+  if (!mock) return;
+  mockTargets.add(location);
+  Object.assign(record, { mime: mock.mime, json: JSON_MIME.test(mock.mime), size: mock.size });
+  contents.set(record, Promise.resolve(mock.content));
+}
+
 const toPairs = (headers = []) => headers.map((h) => [h.name, h.value]);
 
 function toRecord(entry) {
@@ -129,8 +160,10 @@ function toRecord(entry) {
 chrome.devtools.network.onRequestFinished.addListener((entry) => {
   // WebSocket 只在连接关闭后上报且没有响应体，不做记录
   if (store.paused || entry._resourceType === 'websocket') return;
+  if (mockTargets.delete(entry.request.url)) return;
   const record = toRecord(entry);
   entries.set(record, entry);
+  applyMock(record);
   const eager = record.category === 'fetch' && TEXT_MIME.test(record.mime) && record.size <= EAGER_MAX;
   if (!eager) return store.add(record);
   // 先读完再入列表，保证页面跳转后接口响应仍可查看
