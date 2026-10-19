@@ -147,6 +147,7 @@ export const icons = {
   play: svg('<path d="M5 3.25v9.5l7.5-4.75z" fill="currentColor"/>'),
   download: svg('<path d="M8 2.5v8M4.75 7.5 8 10.75l3.25-3.25M3 13.25h10"/>'),
   check: svg('<path d="m3.5 8.5 3 3 6-7"/>'),
+  enter: svg('<path d="M12.5 3.5v4a2 2 0 0 1-2 2h-7M6 6.5l-3 3 3 3"/>'),
   clock: svg('<circle cx="8" cy="8" r="5.75"/><path d="M8 5v3l2 1.25"/>'),
   timer: svg('<circle cx="8" cy="9" r="5"/><path d="M8 9V6.5M6.5 2.25h3M12.25 4.75l-.75.75"/>'),
   box: svg('<path d="M2.75 5 8 2.25 13.25 5v6L8 13.75 2.75 11z"/><path d="M2.75 5 8 7.75 13.25 5M8 7.75v6"/>'),

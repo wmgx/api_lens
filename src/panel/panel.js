@@ -1,8 +1,8 @@
 import {
-  $, esc, icons, fmtTime, fmtDuration, fmtSize, splitUrl, statusClass, copyWithToast, settings, toast, attachClear, typeLabel,
+  $, esc, icons, fmtTime, fmtDuration, splitUrl, statusClass, copyWithToast, settings, toast, attachClear, typeLabel,
 } from './util.js';
 import { createDetail } from './detail.js';
-import { compileRule } from './hostFilter.js';
+import { compileRule, toMatcher } from './hostFilter.js';
 import { DEFAULT_CONFIG, loadConfig, saveConfig, createSettings } from './settingsView.js';
 import { attachHistory } from './history.js';
 import { openMenu, createDropdown } from './menu.js';
@@ -59,19 +59,40 @@ function extract(r) {
 }
 
 // ---------- 筛选 ----------
-const parseTokens = (text) => text.toLowerCase().split(/\s+/).filter(Boolean).map((t) => (
-  t.startsWith('-') && t.length > 1 ? { neg: true, t: t.slice(1) } : { neg: false, t }
-));
+// 与 Chrome 网络面板一致支持 method: / status-code: / domain:（可用 *），其余按关键词匹配；- 前缀表示排除
+const PROPS = {
+  method: (v) => (r) => r.method.toLowerCase() === v,
+  'status-code': (v) => (r) => String(r.status) === v,
+  domain: (v) => {
+    const hit = toMatcher(v);
+    return (r) => hit(urlParts(r).hostname);
+  },
+};
+const parseToken = (raw) => {
+  const neg = raw.startsWith('-') && raw.length > 1;
+  const t = neg ? raw.slice(1) : raw;
+  const i = t.indexOf(':');
+  const prop = i > 0 && t.length > i + 1 && PROPS[t.slice(0, i)];
+  return prop ? { neg, test: prop(t.slice(i + 1)) } : { neg, t };
+};
+const parseTokens = (text) => text.toLowerCase().split(/\s+/).filter(Boolean).map(parseToken);
+
+// 失败或 4xx/5xx 的接口常常没有 JSON 响应体，排查时又最需要看到，JSON 筛选一并放行
+const isApiError = (r) => r.category === 'fetch' && (!r.status || r.status >= 400);
 
 function passes(r) {
   if (filter.method === 'OTHER' ? COMMON_METHODS.includes(r.method) : filter.method !== 'ALL' && r.method !== filter.method) return false;
   if (filter.status !== 'all' && statusClass(r.status) !== filter.status) return false;
   const { types } = filter;
-  if (!types.has('all') && !types.has(r.category) && !(types.has('json') && r.json)) return false;
+  if (!types.has('all') && !types.has(r.category) && !(types.has('json') && (r.json || isApiError(r)))) return false;
   if (!hostOk(urlParts(r).hostname)) return false;
   if (!filter.tokens.length) return true;
-  const hay = `${r.url} ${extract(r).map((it) => it.value).join(' ')}`.toLowerCase();
-  return filter.tokens.every(({ neg, t }) => hay.includes(t) !== neg);
+  let hay = null;
+  return filter.tokens.every(({ neg, t, test }) => {
+    if (test) return test(r) !== neg;
+    hay ??= `${r.url} ${extract(r).map((it) => it.value).join(' ')}`.toLowerCase();
+    return hay.includes(t) !== neg;
+  });
 }
 
 const insertIndex = (list, time) => {
@@ -146,7 +167,7 @@ function renderMeta() {
   if (!filtered.length) {
     empty.innerHTML = total
       ? `${icons.inbox}<b>没有匹配的请求</b><span>调整筛选条件或 Host 过滤规则</span>`
-      : `${icons.inbox}<b>正在监听网络请求</b><span>刷新页面即可捕获首屏请求，刷新后记录会保留</span>`;
+      : `${icons.inbox}<b>正在监听网络请求</b><span>刷新页面即可捕获首屏请求${store?.preserve === false ? '' : '，刷新后记录会保留'}</span>`;
   }
   const rule = config.hostFilter;
   $('#btn-settings').classList.toggle('active', rule.mode !== 'all' && rule.patterns.length > 0);
@@ -240,7 +261,7 @@ async function copyBody(rec) {
   }
 }
 
-// ---------- 悬停提示：完整地址 + 提取的 Header ----------
+// ---------- 悬停提示：方法 + 完整地址 ----------
 let tipTimer = 0;
 let tipRec = null;
 
@@ -251,10 +272,7 @@ function hideTip() {
 }
 
 function showTip(rec, row) {
-  const found = extract(rec).filter((it) => it.value);
-  tip.innerHTML = `<div class="tip-url"><b class="m-${esc(rec.method.toLowerCase())}">${esc(rec.method)}</b> ${esc(rec.url)}</div>
-    <div class="tip-kv"><span>type</span><code>${esc(rec.resourceType)} · ${esc(rec.mime || '-')} · ${fmtSize(rec.size)}</code></div>
-    ${found.map((it) => `<div class="tip-kv"><span>${esc(it.name)}</span><code>${esc(it.value)}</code></div>`).join('')}`;
+  tip.innerHTML = `<div class="tip-url"><b class="m-${esc(rec.method.toLowerCase())}">${esc(rec.method)}</b> ${esc(rec.url)}</div>`;
   tip.hidden = false;
   const r = row.getBoundingClientRect();
   const { height } = tip.getBoundingClientRect();
@@ -359,11 +377,17 @@ function renderPause() {
   const paused = !!store?.paused;
   const btn = $('#btn-pause');
   btn.innerHTML = paused ? icons.play : icons.pause;
-  btn.dataset.tip = paused ? '继续记录' : '暂停记录（暂停期间的请求不会被记录）';
+  btn.dataset.tip = paused ? `继续记录（${MOD}E）` : `暂停记录（${MOD}E，暂停期间的请求不会被记录）`;
   btn.classList.toggle('paused', paused);
   document.body.classList.toggle('is-paused', paused);
 }
 $('#btn-pause').addEventListener('click', () => store?.setPaused(!store.paused));
+
+const renderPreserve = () => { $('#preserve').checked = store?.preserve !== false; };
+$('#preserve').addEventListener('change', (e) => {
+  store?.setPreserve(e.target.checked);
+  settings.set('preserveLog', e.target.checked);
+});
 
 $('#btn-export').addEventListener('click', (e) => {
   const r = e.currentTarget.getBoundingClientRect();
@@ -390,19 +414,31 @@ const settingsUi = createSettings($('#settings'), { onSave: applyConfig });
 $('#btn-settings').addEventListener('click', () => settingsUi.open(config));
 
 // ---------- 快捷键 ----------
+const IS_MAC = /mac/i.test(navigator.userAgentData?.platform || navigator.platform);
+const MOD = IS_MAC ? '⌘' : 'Ctrl+';
+$('#btn-clear').title = `清空全部记录（${IS_MAC ? '⌘K' : 'Ctrl+L'}）`;
 const typing = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
+// 与 Chrome 网络面板一致：清空 ⌘K / Ctrl+L，暂停 / 继续记录 ⌘E / Ctrl+E，搜索 ⌘F / Ctrl+F
+const modShortcuts = {
+  [IS_MAC ? 'k' : 'l']: () => store?.clear(),
+  e: () => store?.setPaused(!store.paused),
+  f: () => (selectedId != null ? detail.focusSearch() : qInput.focus()),
+};
+// DevTools 会在面板页的 document 上监听 keydown，把带 ⌘/Ctrl 的按键转发给自己（⌘F 会弹出 DevTools 的查找栏）。
+// 在 window 捕获阶段先处理并截断传播，转发脚本就收不到
+window.addEventListener('keydown', (e) => {
+  const run = (IS_MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey && modShortcuts[e.key.toLowerCase()];
+  if (!run) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  run();
+}, true);
 document.addEventListener('keydown', (e) => {
-  const mod = e.metaKey || e.ctrlKey;
-  if (mod && e.key.toLowerCase() === 'f' && selectedId != null) {
-    e.preventDefault();
-    detail.focusSearch();
-    return;
-  }
   if (!$('#settings').hidden || typing(document.activeElement)) {
     if (e.key === 'Escape' && document.activeElement === qInput) qInput.blur();
     return;
   }
-  if (e.key === '/' || (mod && e.key.toLowerCase() === 'k')) {
+  if (e.key === '/') {
     e.preventDefault();
     qInput.focus();
   } else if (e.key === 'ArrowDown' || e.key === 'j') {
@@ -456,6 +492,7 @@ $('#divider').addEventListener('pointerdown', (e) => {
 
 // ---------- 接入 DevTools 侧的数据 ----------
 function onStoreEvent(ev) {
+  if (ev.type === 'preserve') return renderPreserve();
   if (ev.type === 'pause') {
     renderPause();
     renderMeta();
@@ -466,6 +503,14 @@ function onStoreEvent(ev) {
     select(null);
     paint();
     return;
+  }
+  if (ev.type === 'evict') {
+    const i = filtered.indexOf(ev.record);
+    if (i < 0) return schedulePaint();
+    filtered.splice(i, 1);
+    // 删掉视口上方的行时同步上移，保持当前看到的内容不跳动
+    if (i * ROW_H < vlist.scrollTop) vlist.scrollTop -= ROW_H;
+    return schedulePaint();
   }
   if (!passes(ev.record)) return schedulePaint();
   const stick = atBottom();
@@ -491,6 +536,7 @@ async function attach(s) {
   sizes = { ...sizes, ...savedSizes };
   applySize();
   renderPause();
+  renderPreserve();
   const unsubscribe = store.subscribe(onStoreEvent);
   window.addEventListener('unload', unsubscribe);
   refilter();

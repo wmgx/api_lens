@@ -25,6 +25,8 @@
 .jv-query input { font: 11.5px var(--mono); }
 .jv-prefix { flex: none; font: 600 11.5px var(--mono); color: var(--accent); user-select: none; }
 .jv-query input { padding-left: 0; }
+.jv-query input:placeholder-shown ~ [data-act="apply"] { display: none; }
+.jv-field [data-act="apply"].pending { color: var(--accent); }
 .jv.filtered .jv-query { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: var(--accent-soft); }
 .jv-search { flex: 2 1 0; min-width: 130px; max-width: 280px; }
 .jv-tools { flex: none; }

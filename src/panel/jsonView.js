@@ -83,6 +83,7 @@ export function createJsonView(host) {
       <label class="jv-field jv-query" title="按路径 / JSONPath / JS 表达式过滤，如 data.list[*].id、data.list.filter(x => x.ok)，回车执行">
         <span class="jv-prefix">$.</span>
         <input type="text" data-in="query" placeholder="data.list[*].id 或 JS 表达式" spellcheck="false" autocomplete="off">
+        <button type="button" data-act="apply" title="应用过滤（Enter）">${icons.enter}</button>
       </label>
       <label class="jv-field jv-search">${icons.search}
         <input type="text" data-in="search" placeholder="搜索" spellcheck="false" autocomplete="off">
@@ -301,9 +302,11 @@ export function createJsonView(host) {
     }
   }
 
+  const applyBtn = q('[data-act="apply"]');
   const setExpr = (value) => {
     expr = stripPrefix(value);
     queryInput.value = expr;
+    applyBtn.classList.remove('pending');
     applyExpr();
   };
 
@@ -319,8 +322,11 @@ export function createJsonView(host) {
       setExpr('');
     }
   });
+  // 输入内容与已生效的表达式不同时，高亮「应用」按钮，提示还没执行
+  const syncApply = () => applyBtn.classList.toggle('pending', stripPrefix(queryInput.value) !== expr);
   queryInput.addEventListener('input', () => {
     if (!queryInput.value.trim() && expr) setExpr('');
+    syncApply();
   });
 
   // ---------- 搜索 ----------
@@ -431,6 +437,7 @@ export function createJsonView(host) {
   q('.jv-bar').addEventListener('click', (e) => {
     const act = e.target.closest('button')?.dataset.act;
     if (!act) return;
+    if (act === 'apply') setExpr(queryInput.value);
     if (act === 'prev') goTo(st.cur - 1);
     if (act === 'next') goTo(st.cur + 1);
     if (act === 'copy') copyWithToast(rawText());

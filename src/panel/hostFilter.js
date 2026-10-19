@@ -1,7 +1,7 @@
 // Host 过滤：example.com 匹配自身及所有子域；含 * 时按通配符整体匹配，如 *.example.com、api-*.example.org
 export const DEFAULT_RULE = { mode: 'all', patterns: [] };
 
-const toMatcher = (pattern) => {
+export const toMatcher = (pattern) => {
   const p = pattern.trim().toLowerCase();
   if (!p.includes('*')) return (host) => host === p || host.endsWith(`.${p}`);
   const re = new RegExp(`^${p.split('*').map((s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`);

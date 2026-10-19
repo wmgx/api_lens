@@ -9,7 +9,12 @@
 </head>
 <body>
   <header class="bar">
-    <label class="filter" title="匹配 URL 和提取的 Header 值；空格分隔多个关键词，-前缀表示排除">
+    <div class="bar-start">
+      <button type="button" class="icon" id="btn-pause"></button>
+      <button type="button" class="icon" id="btn-clear" title="清空全部记录"></button>
+      <label class="preserve" title="页面刷新 / 跳转时保留之前的记录；关闭后跳转时自动清空"><input type="checkbox" id="preserve"><span>保留日志</span></label>
+    </div>
+    <label class="filter" title="匹配 URL 和提取的 Header 值；空格分隔多个关键词，-前缀表示排除；支持 method:POST、status-code:404、domain:*.example.com">
       <span class="filter-icon"></span>
       <input id="q" type="text" placeholder="筛选 URL / Header 值" spellcheck="false" autocomplete="off">
       <kbd>/</kbd>
@@ -32,10 +37,8 @@
     </div>
     <div class="bar-end">
       <span class="count" id="count"></span>
-      <button type="button" class="icon" id="btn-pause" title="暂停记录"></button>
       <button type="button" class="icon" id="btn-export" title="导出为 HAR / JSON"></button>
       <button type="button" class="icon" id="btn-settings" title="设置：提取 Header、Host 过滤"></button>
-      <button type="button" class="icon" id="btn-clear" title="清空全部记录"></button>
     </div>
   </header>
 
@@ -57,7 +60,7 @@
 
       <section class="sheet-sec">
         <h3>自动提取 Header</h3>
-        <p class="hint">每行一个 Header 名，先查响应头再查请求头。提取结果在详情顶部展示、可一键复制，也可用于列表筛选和悬停提示。</p>
+        <p class="hint">每行一个 Header 名，先查响应头再查请求头。提取结果在详情顶部展示、可一键复制，也可用于列表筛选。</p>
         <textarea data-field="headers" rows="4" spellcheck="false" placeholder="x-tt-logid&#10;x-tt-trace-id"></textarea>
       </section>
 

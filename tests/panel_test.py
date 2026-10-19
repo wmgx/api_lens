@@ -30,6 +30,9 @@ ORDERS_TEXT = json.dumps(ORDERS).replace('"big": 0', '"big": 1234567890123456789
 
 INIT = """(() => {
   window.chrome = { devtools: { panels: { themeName: 'default' } } };
+  // 模拟 DevTools 注入的按键转发：带 ⌘/Ctrl 的按键到达 document 就会被转发
+  window.__forwarded = 0;
+  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') window.__forwarded += 1; });
   // 复制走 execCommand，记录复制内容供断言
   document.execCommand = function () { window.__copied = document.activeElement && document.activeElement.value; return true; };
   let seq = 0;
@@ -50,11 +53,13 @@ INIT = """(() => {
   ];
   window.__jniStore = {
     records, paused: false, setPaused(v) { this.paused = v; subs.forEach((f) => f({ type: 'pause' })); },
+    preserve: true, setPreserve(v) { this.preserve = v; subs.forEach((f) => f({ type: 'preserve' })); },
     subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
     clear() { records.length = 0; subs.forEach((f) => f({ type: 'clear' })); },
     loadContent: (r) => Promise.resolve({ text: r.url.includes('/orders') ? __ORDERS__ : '{"ok":true}', encoding: '' }),
   };
-  window.__add = (url) => { const r = mk(url, { startTime: Date.now() }); records.push(r); subs.forEach((f) => f({ type: 'add', record: r })); };
+  window.__add = (url, extra = {}) => { const r = mk(url, { startTime: Date.now(), ...extra }); records.push(r); subs.forEach((f) => f({ type: 'add', record: r })); };
+  window.__evict = () => { const r = records.shift(); subs.forEach((f) => f({ type: 'evict', record: r })); };
 })();""".replace('__ORDERS__', json.dumps(ORDERS_TEXT))
 
 JV = '[data-jv="res"]'
@@ -75,6 +80,12 @@ def test_list(page):
     page.fill('#q', 'item/3')
     page.wait_for_timeout(200)
     check(page.locator('.r').count() == 1, '关键词筛选')
+    page.fill('#q', 'method:post status-code:400 domain:example.com')
+    page.wait_for_timeout(200)
+    check(page.locator('.r').count() == 1 and '/v1/user' in page.inner_text('.r'), 'method: / status-code: / domain: 筛选')
+    page.fill('#q', '-domain:api.example.com')
+    page.wait_for_timeout(200)
+    check(page.locator('.r').count() == 1 and 'app.js' in page.inner_text('.r'), '-domain: 排除')
     page.fill('#q', 'LOGID2')
     page.wait_for_timeout(200)
     check(page.locator('.r').count() == 1 and '/v1/user' in page.inner_text('.r'), '按提取的 Header 值筛选')
@@ -105,6 +116,9 @@ def test_detail(page):
 
 
 def test_json_tools(page):
+    page.keyboard.press(('Meta' if sys.platform == 'darwin' else 'Control') + '+F')
+    focused = page.evaluate("document.activeElement.matches('[data-jv=\"res\"] [data-in=\"search\"]')")
+    check(focused and page.evaluate('__forwarded') == 0, '⌘F 聚焦响应搜索框且不被 DevTools 转发')
     search = f'{JV} [data-in="search"]'
     page.fill(search, 'item')
     page.wait_for_timeout(400)
@@ -128,7 +142,8 @@ def test_json_tools(page):
     page.wait_for_timeout(400)
     check('10 项' in page.inner_text(f'{JV} .jv-banner'), 'JS 表达式过滤')
     page.fill(query, 'data.list[*].title')
-    page.press(query, 'Enter')
+    check(page.locator(f'{JV} [data-act="apply"].pending').count() == 1, '输入未执行时应用按钮高亮')
+    page.click(f'{JV} [data-act="apply"]')
     page.wait_for_timeout(400)
     check('30 项' in page.inner_text(f'{JV} .jv-banner'), 'JSONPath 过滤')
     page.fill(query, 'big')
@@ -162,6 +177,23 @@ def test_clear(page):
     check(page.locator('.r').count() == 1, '清空后新请求正常显示')
 
 
+def test_errors_and_shortcuts(page):
+    page.click('#types [data-v="json"]')
+    page.evaluate("__add('https://api.example.com/v1/broken', { status: 0, mime: '', json: false })")
+    page.evaluate("__add('https://cdn.example.com/missing.js', { status: 404, resourceType: 'script', category: 'js', mime: 'text/html', json: false })")
+    page.wait_for_timeout(200)
+    check(page.locator('.r', has_text='/v1/broken').count() == 1, 'JSON 筛选显示失败的接口')
+    check(page.locator('.r', has_text='missing.js').count() == 0, 'JSON 筛选不显示非接口的错误资源')
+    page.evaluate('__evict()')
+    page.wait_for_timeout(200)
+    check(page.locator('.r', has_text='after-clear').count() == 0, '淘汰的记录从列表移除')
+    page.uncheck('#preserve')
+    check(page.evaluate('__jniStore.preserve') is False, '取消保留日志同步到 store')
+    page.keyboard.press('Meta+K' if sys.platform == 'darwin' else 'Control+L')
+    page.wait_for_timeout(200)
+    check(page.locator('.r').count() == 0, '快捷键清空')
+
+
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -181,7 +213,8 @@ def main():
             page.on('console', lambda m: m.type == 'error' and errors.append(m.text))
             page.goto(f'http://127.0.0.1:{server.server_address[1]}/src/panel/panel.html')
             page.wait_for_timeout(300)
-            for test in (test_list, test_hover_no_flicker, test_detail, test_json_tools, test_copy_rows, test_clear):
+            for test in (test_list, test_hover_no_flicker, test_detail, test_json_tools, test_copy_rows, test_clear,
+                         test_errors_and_shortcuts):
                 test(page)
             browser.close()
     finally:

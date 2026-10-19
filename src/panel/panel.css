@@ -109,11 +109,14 @@ body.is-paused .count { color: var(--s4); }
 /* ---------- 工具栏：宽时单行，窄时两行（筛选 + 操作 / 方法 + 状态） ---------- */
 .bar {
   display: grid; align-items: center; gap: 6px 8px;
-  grid-template-columns: minmax(160px, 1fr) minmax(0, auto) auto;
-  grid-template-areas: "filter opts end";
+  grid-template-columns: auto minmax(160px, 1fr) minmax(0, auto) auto;
+  grid-template-areas: "start filter opts end";
   padding: 6px 8px;
   background: var(--bg-2); border-bottom: 1px solid var(--line);
 }
+.bar-start { grid-area: start; display: flex; align-items: center; gap: 2px; }
+.preserve { display: flex; align-items: center; gap: 4px; margin-left: 4px; color: var(--fg-2); white-space: nowrap; cursor: pointer; }
+.preserve input { accent-color: var(--accent); margin: 0; }
 .filter {
   grid-area: filter; display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 520px;
   height: 26px; padding: 0 6px 0 8px;
@@ -133,9 +136,22 @@ body.is-paused .count { color: var(--s4); }
 .dd.set { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent); background-color: var(--accent-soft); }
 .dd.set svg { color: var(--accent); }
 .bar-end { grid-area: end; display: flex; align-items: center; gap: 2px; justify-self: end; }
+/* 窄时改为自动换行：放得下就是「按钮 筛选 操作」一行，放不下时筛选框换行而不是被挤没；方法 / 状态固定另起一行 */
 @media (max-width: 1000px) {
-  .bar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "filter end" "opts opts"; }
-  .filter { max-width: none; }
+  .bar { display: flex; flex-wrap: wrap; }
+  .bar-start { order: 0; }
+  .filter { order: 1; flex: 1 1 180px; max-width: none; }
+  .bar-end { order: 2; margin-left: auto; }
+  .bar-opts { order: 3; flex-basis: 100%; }
+}
+/* 极窄时按钮和操作留在第一行，筛选框整行 */
+@media (max-width: 440px) {
+  .bar-end { order: 1; }
+  .filter { order: 2; flex-basis: 100%; }
+}
+/* 再窄时连「保留日志」文字也放不下，只留复选框（悬停有说明） */
+@media (max-width: 340px) {
+  .preserve span { display: none; }
 }
 
 .dd {
@@ -178,7 +194,7 @@ input:placeholder-shown + .clear-x { display: none; }
 .split[data-dir="row"] .divider::before { inset: 0 -3px; }
 .split[data-dir="col"] .divider::before { inset: -3px 0; }
 .divider:hover, .divider:active { background: var(--accent); }
-.detail { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.detail { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; container-type: inline-size; }
 
 /* ---------- 列表 ---------- */
 .lhead, .r {
@@ -240,6 +256,12 @@ input:placeholder-shown + .clear-x { display: none; }
   user-select: text;
 }
 .d-title .icon { width: 22px; height: 22px; }
+/* 详情较窄时 URL 被方法、状态和按钮挤得只剩几个字符，改为单独占第二行 */
+@container (max-width: 400px) {
+  .d-title { flex-wrap: wrap; row-gap: 6px; }
+  .badge-s { margin-right: auto; }
+  .d-url { order: 1; flex-basis: 100%; -webkit-line-clamp: 3; }
+}
 .d-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .mi {
   display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px 0 6px;
@@ -385,12 +407,12 @@ input:placeholder-shown + .clear-x { display: none; }
 }
 .menu button:focus { outline: 0; background: var(--bg-3); }
 .menu button:hover:not(:disabled) { background: var(--accent); color: var(--accent-fg); }
-.menu-label { flex: 1; }
+.menu-label { flex: 1 0 auto; white-space: nowrap; }
 .menu-check { flex: none; width: 14px; margin-right: -8px; color: var(--accent); display: grid; place-items: center; }
 .menu button:hover:not(:disabled) .menu-check { color: inherit; }
 .menu button:hover:not(:disabled) .menu-hint { color: inherit; opacity: .8; }
 .menu button:disabled { opacity: .4; cursor: default; }
-.menu-hint { color: var(--fg-3); font: 11px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+.menu-hint { flex: 0 1 auto; min-width: 0; color: var(--fg-3); font: 11px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
 .menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
 
 .hist { padding: 4px; max-height: 300px; overflow: auto; }
@@ -413,9 +435,6 @@ input:placeholder-shown + .clear-x { display: none; }
 .tip { padding: 8px 10px; pointer-events: none; display: grid; gap: 4px; font: 11.5px/1.5 var(--mono); animation: pop .1s ease-out; }
 .tip-url { word-break: break-all; }
 .tip-url b { font-weight: 600; margin-right: 4px; }
-.tip-kv { display: flex; gap: 8px; color: var(--fg-2); }
-.tip-kv span { color: var(--accent); flex: none; }
-.tip-kv code { word-break: break-all; }
 
 /* ---------- Toast ---------- */
 .toast {
